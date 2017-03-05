@@ -19,6 +19,7 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
@@ -78,8 +79,12 @@ public class MainActivity extends AppCompatActivity {
             PreferenceManager.getDefaultSharedPreferences(this));
          quizFragment.updateRegions(
             PreferenceManager.getDefaultSharedPreferences(this));
-         quizFragment.resetQuiz();
-         quizFragment.loadCurrentQuestionFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
+
+         if (Objects.equals(PreferenceManager.getDefaultSharedPreferences(this).getString(CURRENTQUESTION, null), "")) {
+            quizFragment.resetQuiz();
+         } else {
+            quizFragment.loadCurrentQuestionFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
+         }
          preferencesChanged = false;
       }
    }

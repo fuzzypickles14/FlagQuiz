@@ -128,15 +128,15 @@ public class MainActivityFragment extends Fragment {
    }
 
    public void loadCurrentQuestionFromPreferences(SharedPreferences preferences) {
-      resetQuiz();
+      initFlags();
       String currentQuestionData = preferences.getString(MainActivity.CURRENTQUESTION, null);
       String data[] = currentQuestionData.split(",");
       String nextImage = data[0] + ".png";
 
       correctAnswer = data[0];
-      answerTextView.setText("");
-      questionNumberTextView.setText(getString(
-              R.string.question, (correctAnswers + 1), FLAGS_IN_QUIZ));
+      correctAnswers = Integer.parseInt(data[5].substring(data[5].indexOf(":") + 1));
+      totalGuesses = Integer.parseInt(data[6].substring(data[6].indexOf(":") + 1));
+      setQuestionNumber();
 
       String region = data[0].substring(0, data[0].indexOf('-'));
       AssetManager assets = getActivity().getAssets();
@@ -147,7 +147,7 @@ public class MainActivityFragment extends Fragment {
          Drawable flag = Drawable.createFromStream(stream, nextImage);
          flagImageView.setImageDrawable(flag);
 
-         animate(false); // animate the flag onto the screen
+         //animate(false); // animate the flag onto the screen
       }
       catch (IOException exception) {
          Log.e(TAG, "Error loading " + nextImage, exception);
@@ -155,17 +155,15 @@ public class MainActivityFragment extends Fragment {
 
       int rowIndex = 0;
       for (int row = 0; row < guessRows; row++) {
-         // place Buttons in currentTableRow
          for (int column = 0;
               column < guessLinearLayouts[row].getChildCount();
               column++) {
-            // get reference to Button to configure
             Button newGuessButton =
                     (Button) guessLinearLayouts[row].getChildAt(column);
             newGuessButton.setEnabled(true);
             int buttonTextIndex = row + column + 1 + rowIndex;
             newGuessButton.setText(data[buttonTextIndex].substring(0, data[buttonTextIndex].indexOf(":")));
-            if (data[buttonTextIndex].indexOf(":T") != -1) {
+            if (data[buttonTextIndex].contains(":T")) {
                newGuessButton.setEnabled(true);
                newGuessButton.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null);
             } else {
@@ -178,6 +176,11 @@ public class MainActivityFragment extends Fragment {
 
    }
 
+   private void initFlags() {
+      addFlagsToList();
+      addFlagsToQuiz();
+   }
+
    // update world regions for quiz based on values in SharedPreferences
    public void updateRegions(SharedPreferences sharedPreferences) {
       regionsSet =
@@ -188,27 +191,15 @@ public class MainActivityFragment extends Fragment {
    public void resetQuiz() {
       // use AssetManager to get image file names for enabled regions
 
-      AssetManager assets = getActivity().getAssets();
-      fileNameList.clear(); // empty list of image file names
-
-      try {
-         // loop through each region
-         for (String region : regionsSet) {
-            // get a list of all flag image files in this region
-            String[] paths = assets.list(region);
-
-            for (String path : paths)
-               fileNameList.add(path.replace(".png", ""));
-         }
-      }
-      catch (IOException exception) {
-         Log.e(TAG, "Error loading image file names", exception);
-      }
-
       correctAnswers = 0; // reset the number of correct answers made
       totalGuesses = 0; // reset the total number of guesses the user made
       quizCountriesList.clear(); // clear prior list of quiz countries
 
+      initFlags();
+      loadNextFlag();
+   }
+
+   private void addFlagsToQuiz() {
       int flagCounter = 1;
       int numberOfFlags = fileNameList.size();
 
@@ -227,23 +218,32 @@ public class MainActivityFragment extends Fragment {
       }
    }
 
+   private void addFlagsToList() {
+      AssetManager assets = getActivity().getAssets();
+      fileNameList.clear(); // empty list of image file names
+
+      try {
+         // loop through each region
+         for (String region : regionsSet) {
+            // get a list of all flag image files in this region
+            String[] paths = assets.list(region);
+
+            for (String path : paths)
+               fileNameList.add(path.replace(".png", ""));
+         }
+      }
+      catch (IOException exception) {
+         Log.e(TAG, "Error loading image file names", exception);
+      }
+   }
+
    // after the user guesses a correct flag, load the next flag
    private void loadNextFlag() {
       // get file name of the next flag and remove it from the list
-      SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
-      SharedPreferences.Editor editor = preferences.edit();
-
-      String currentQuestion = "";
-
       String nextImage = quizCountriesList.remove(0);
       correctAnswer = nextImage; // update the correct answer
-      currentQuestion = currentQuestion.concat(nextImage);
 
-      answerTextView.setText(""); // clear answerTextView
-
-      // display current question number
-      questionNumberTextView.setText(getString(
-         R.string.question, (correctAnswers + 1), FLAGS_IN_QUIZ));
+      setQuestionNumber();
 
       // extract the region from the next image's name
       String region = nextImage.substring(0, nextImage.indexOf('-'));
@@ -299,16 +299,34 @@ public class MainActivityFragment extends Fragment {
       String countryName = getCountryName(correctAnswer);
       ((Button) randomRow.getChildAt(column)).setText(countryName);
       fileNameList = unfilteredFileNameList;
+      setupCurrentQuestionData(nextImage);
+   }
 
+   private void setQuestionNumber() {
+      answerTextView.setText(""); // clear answerTextView
+
+      // display current question number
+      questionNumberTextView.setText(getString(
+         R.string.question, (correctAnswers + 1), FLAGS_IN_QUIZ));
+   }
+
+   private void setupCurrentQuestionData(String answer) {
+      SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
+      SharedPreferences.Editor editor = preferences.edit();
+      String currentQuestion = "";
+      currentQuestion = currentQuestion.concat(answer);
+      LinearLayout randomRow;
       for (int i = 0; i < guessRows; i++) {
          randomRow = guessLinearLayouts[i];
          for (int j = 0; j < 2; j++) {
             currentQuestion = currentQuestion.concat(String.format(",%s:T",(String)((Button) randomRow.getChildAt(j)).getText()));
          }
       }
+      currentQuestion = currentQuestion.concat(String.format(",QuestionNum:%d,TotalGuess:%d", correctAnswers, totalGuesses));
       editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
       editor.apply();
    }
+
 
    private ArrayList<String> filterByRegion(ArrayList<String> allCountries, String region) {
       ArrayList<String> temp = new ArrayList<>();
@@ -463,6 +481,7 @@ public class MainActivityFragment extends Fragment {
             SharedPreferences.Editor editor = preferences.edit();
             String currentQuestion = preferences.getString(MainActivity.CURRENTQUESTION, null);
             currentQuestion = currentQuestion.replace(String.format(",%s:T", guess), String.format(",%s:F", guess));
+            currentQuestion = currentQuestion.replaceAll("TotalGuess:\\d+", String.format("TotalGuess:%d", totalGuesses));
             editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
             editor.apply();
          }
