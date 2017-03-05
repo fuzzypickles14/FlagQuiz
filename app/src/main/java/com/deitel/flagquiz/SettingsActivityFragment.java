@@ -4,13 +4,19 @@ package com.deitel.flagquiz;
 
 import android.os.Bundle;
 import android.preference.PreferenceFragment;
+import android.preference.Preference;
+import android.preference.PreferenceScreen;
 
 public class SettingsActivityFragment extends PreferenceFragment {
+
    // creates preferences GUI from preferences.xml file in res/xml
    @Override
    public void onCreate(Bundle bundle) {
       super.onCreate(bundle);
-      addPreferencesFromResource(R.xml.preferences); // load from XML
+      addPreferencesFromResource(R.xml.preferences);// load from XML
+      Preference currentQuestion = findPreference(MainActivity.CURRENTQUESTION);
+      PreferenceScreen screen = getPreferenceScreen();
+      screen.removePreference(currentQuestion);
    }
 }
 

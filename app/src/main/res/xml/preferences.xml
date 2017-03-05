@@ -20,4 +20,11 @@
       android:persistent="true"
       android:defaultValue="@array/regions_list" />
 
+   <EditTextPreference
+       android:key="pref_currentQuestion"
+       android:title="@string/title_current_question"
+       android:summary="@string/description_current_question"
+       android:persistent="true"
+       android:defaultValue="@string/default_question"
+       android:focusable="false" />
 </PreferenceScreen>

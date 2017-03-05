@@ -11,17 +11,21 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.preference.Preference;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import java.util.Map;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
    // keys for reading data from SharedPreferences
    public static final String CHOICES = "pref_numberOfChoices";
    public static final String REGIONS = "pref_regionsToInclude";
+   public static final String CURRENTQUESTION = "pref_currentQuestion";
 
    private boolean phoneDevice = true; // used to force portrait mode
    private boolean preferencesChanged = true; // did preferences change?
@@ -38,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
       PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
 
       // register listener for SharedPreferences changes
-      PreferenceManager.getDefaultSharedPreferences(this).
+      PreferenceManager.getDefaultSharedPreferences(getApplicationContext()).
          registerOnSharedPreferenceChangeListener(
             preferencesChangeListener);
 
@@ -65,14 +69,17 @@ public class MainActivity extends AppCompatActivity {
       if (preferencesChanged) {
          // now that the default preferences have been set,
          // initialize MainActivityFragment and start the quiz
+         Map s = PreferenceManager.getDefaultSharedPreferences(this).getAll();
          MainActivityFragment quizFragment = (MainActivityFragment)
             getSupportFragmentManager().findFragmentById(
                R.id.quizFragment);
+
          quizFragment.updateGuessRows(
             PreferenceManager.getDefaultSharedPreferences(this));
          quizFragment.updateRegions(
             PreferenceManager.getDefaultSharedPreferences(this));
          quizFragment.resetQuiz();
+         quizFragment.loadCurrentQuestionFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
          preferencesChanged = false;
       }
    }
@@ -140,9 +147,11 @@ public class MainActivity extends AppCompatActivity {
                }
             }
 
-            Toast.makeText(MainActivity.this,
-               R.string.restarting_quiz,
-               Toast.LENGTH_SHORT).show();
+            if (!key.equals(CURRENTQUESTION)) {
+               Toast.makeText(MainActivity.this,
+                       R.string.restarting_quiz,
+                       Toast.LENGTH_SHORT).show();
+            }
          }
       };
 }

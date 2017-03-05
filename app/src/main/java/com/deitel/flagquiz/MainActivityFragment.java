@@ -8,6 +8,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import android.animation.Animator;
@@ -20,6 +21,7 @@ import android.content.res.AssetManager;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.util.Log;
@@ -112,8 +114,10 @@ public class MainActivityFragment extends Fragment {
       // get the number of guess buttons that should be displayed
       String choices =
          sharedPreferences.getString(MainActivity.CHOICES, null);
+
       guessRows = Integer.parseInt(choices) / 2;
 
+      Map<String, ?> test = sharedPreferences.getAll();
       // hide all quess button LinearLayouts
       for (LinearLayout layout : guessLinearLayouts)
          layout.setVisibility(View.GONE);
@@ -121,6 +125,57 @@ public class MainActivityFragment extends Fragment {
       // display appropriate guess button LinearLayouts
       for (int row = 0; row < guessRows; row++)
          guessLinearLayouts[row].setVisibility(View.VISIBLE);
+   }
+
+   public void loadCurrentQuestionFromPreferences(SharedPreferences preferences) {
+      resetQuiz();
+      String currentQuestionData = preferences.getString(MainActivity.CURRENTQUESTION, null);
+      String data[] = currentQuestionData.split(",");
+      String nextImage = data[0] + ".png";
+
+      correctAnswer = data[0];
+      answerTextView.setText("");
+      questionNumberTextView.setText(getString(
+              R.string.question, (correctAnswers + 1), FLAGS_IN_QUIZ));
+
+      String region = data[0].substring(0, data[0].indexOf('-'));
+      AssetManager assets = getActivity().getAssets();
+
+      try (InputStream stream =
+                   assets.open(region + "/" + nextImage)) {
+         // load the asset as a Drawable and display on the flagImageView
+         Drawable flag = Drawable.createFromStream(stream, nextImage);
+         flagImageView.setImageDrawable(flag);
+
+         animate(false); // animate the flag onto the screen
+      }
+      catch (IOException exception) {
+         Log.e(TAG, "Error loading " + nextImage, exception);
+      }
+
+      int rowIndex = 0;
+      for (int row = 0; row < guessRows; row++) {
+         // place Buttons in currentTableRow
+         for (int column = 0;
+              column < guessLinearLayouts[row].getChildCount();
+              column++) {
+            // get reference to Button to configure
+            Button newGuessButton =
+                    (Button) guessLinearLayouts[row].getChildAt(column);
+            newGuessButton.setEnabled(true);
+            int buttonTextIndex = row + column + 1 + rowIndex;
+            newGuessButton.setText(data[buttonTextIndex].substring(0, data[buttonTextIndex].indexOf(":")));
+            if (data[buttonTextIndex].indexOf(":T") != -1) {
+               newGuessButton.setEnabled(true);
+               newGuessButton.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null);
+            } else {
+               newGuessButton.setEnabled(false);
+               setButtonImage(newGuessButton, (String)newGuessButton.getText(), region);
+            }
+         }
+         rowIndex++;
+      }
+
    }
 
    // update world regions for quiz based on values in SharedPreferences
@@ -170,15 +225,20 @@ public class MainActivityFragment extends Fragment {
             ++flagCounter;
          }
       }
-
-      loadNextFlag(); // start the quiz by loading the first flag
    }
 
    // after the user guesses a correct flag, load the next flag
    private void loadNextFlag() {
       // get file name of the next flag and remove it from the list
+      SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
+      SharedPreferences.Editor editor = preferences.edit();
+
+      String currentQuestion = "";
+
       String nextImage = quizCountriesList.remove(0);
       correctAnswer = nextImage; // update the correct answer
+      currentQuestion = currentQuestion.concat(nextImage);
+
       answerTextView.setText(""); // clear answerTextView
 
       // display current question number
@@ -240,6 +300,14 @@ public class MainActivityFragment extends Fragment {
       ((Button) randomRow.getChildAt(column)).setText(countryName);
       fileNameList = unfilteredFileNameList;
 
+      for (int i = 0; i < guessRows; i++) {
+         randomRow = guessLinearLayouts[i];
+         for (int j = 0; j < 2; j++) {
+            currentQuestion = currentQuestion.concat(String.format(",%s:T",(String)((Button) randomRow.getChildAt(j)).getText()));
+         }
+      }
+      editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
+      editor.apply();
    }
 
    private ArrayList<String> filterByRegion(ArrayList<String> allCountries, String region) {
@@ -390,6 +458,13 @@ public class MainActivityFragment extends Fragment {
                R.color.incorrect_answer, getContext().getTheme()));
             guessButton.setEnabled(false); // disable incorrect answer
             setButtonImage(guessButton, guess, region);
+
+            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
+            SharedPreferences.Editor editor = preferences.edit();
+            String currentQuestion = preferences.getString(MainActivity.CURRENTQUESTION, null);
+            currentQuestion = currentQuestion.replace(String.format(",%s:T", guess), String.format(",%s:F", guess));
+            editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
+            editor.apply();
          }
       }
    };

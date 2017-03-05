@@ -15,4 +15,7 @@
    <string name="image_description">Image of the current flag in the quiz</string>
    <string name="default_region">North_America</string>
    <string name="title_activity_settings">Settings</string>
+   <string name="title_current_question">Current Question</string>
+   <string name="description_current_question">The Current Question</string>
+   <string name="default_question"> </string>
 </resources>
