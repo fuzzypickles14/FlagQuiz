@@ -18,4 +18,6 @@
    <string name="title_current_question">Current Question</string>
    <string name="description_current_question">The Current Question</string>
    <string name="default_question"> </string>
+   <string name="num_guesses_name">Number of Incorrect Guesses </string>
+   <string name="num_guesses_summary">The number of incorrect guesses allowed for each question </string>
 </resources>

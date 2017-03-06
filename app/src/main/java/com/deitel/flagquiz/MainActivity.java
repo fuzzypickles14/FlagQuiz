@@ -27,6 +27,7 @@ public class MainActivity extends AppCompatActivity {
    public static final String CHOICES = "pref_numberOfChoices";
    public static final String REGIONS = "pref_regionsToInclude";
    public static final String CURRENTQUESTION = "pref_currentQuestion";
+   public static final String NUMGUESSES = "pref_numberOfGuesses";
 
    private boolean phoneDevice = true; // used to force portrait mode
    private boolean preferencesChanged = true; // did preferences change?
@@ -70,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
       if (preferencesChanged) {
          // now that the default preferences have been set,
          // initialize MainActivityFragment and start the quiz
-         Map s = PreferenceManager.getDefaultSharedPreferences(this).getAll();
          MainActivityFragment quizFragment = (MainActivityFragment)
             getSupportFragmentManager().findFragmentById(
                R.id.quizFragment);
@@ -80,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
          quizFragment.updateRegions(
             PreferenceManager.getDefaultSharedPreferences(this));
 
-         if (Objects.equals(PreferenceManager.getDefaultSharedPreferences(this).getString(CURRENTQUESTION, null), "")) {
+         if (Objects.equals(PreferenceManager.getDefaultSharedPreferences(this).getString(CURRENTQUESTION, null), "") || preferencesChanged) {
             quizFragment.resetQuiz();
          } else {
             quizFragment.loadCurrentQuestionFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
@@ -152,7 +152,13 @@ public class MainActivity extends AppCompatActivity {
                }
             }
 
-            if (!key.equals(CURRENTQUESTION)) {
+            if (Integer.parseInt(sharedPreferences.getString(NUMGUESSES, null)) > Integer.parseInt(sharedPreferences.getString(CHOICES, null))) {
+               Toast.makeText(MainActivity.this, "The number of guesses must be less than or equal to the number of choices.\n Setting the number of guess to the number of choices", Toast.LENGTH_SHORT).show();
+               SharedPreferences.Editor editor =
+                       sharedPreferences.edit();
+               editor.putString(NUMGUESSES, sharedPreferences.getString(CHOICES, null));
+               editor.apply();
+            } else if (!key.equals(CURRENTQUESTION)) {
                Toast.makeText(MainActivity.this,
                        R.string.restarting_quiz,
                        Toast.LENGTH_SHORT).show();

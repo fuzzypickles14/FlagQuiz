@@ -27,4 +27,14 @@
        android:persistent="true"
        android:defaultValue="@string/default_question"
        android:focusable="false" />
+
+   <ListPreference
+      android:entries="@array/num_guesses_list"
+       android:entryValues="@array/num_guesses_list"
+       android:key="pref_numberOfGuesses"
+       android:title="@string/num_guesses_name"
+       android:summary="@string/num_guesses_summary"
+       android:persistent="true"
+       android:defaultValue="4"
+      />
 </PreferenceScreen>

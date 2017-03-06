@@ -49,6 +49,8 @@ public class MainActivityFragment extends Fragment {
    private String correctAnswer; // correct country for the current flag
    private int totalGuesses; // number of guesses made
    private int correctAnswers; // number of correct guesses
+   private int questionNumber;
+   private int guessForQuestion;
    private int guessRows; // number of rows displaying guess Buttons
    private SecureRandom random; // used to randomize the quiz
    private Handler handler; // used to delay loading next flag
@@ -116,8 +118,6 @@ public class MainActivityFragment extends Fragment {
          sharedPreferences.getString(MainActivity.CHOICES, null);
 
       guessRows = Integer.parseInt(choices) / 2;
-
-      Map<String, ?> test = sharedPreferences.getAll();
       // hide all quess button LinearLayouts
       for (LinearLayout layout : guessLinearLayouts)
          layout.setVisibility(View.GONE);
@@ -134,8 +134,9 @@ public class MainActivityFragment extends Fragment {
       String nextImage = data[0] + ".png";
 
       correctAnswer = data[0];
-      correctAnswers = Integer.parseInt(data[5].substring(data[5].indexOf(":") + 1));
-      totalGuesses = Integer.parseInt(data[6].substring(data[6].indexOf(":") + 1));
+      questionNumber = Integer.parseInt(data[data.length - 3].substring(data[data.length - 3].indexOf(":") + 1));
+      correctAnswers = Integer.parseInt(data[data.length - 2].substring(data[data.length - 2].indexOf(":") + 1));
+      totalGuesses = Integer.parseInt(data[data.length - 1].substring(data[data.length - 1].indexOf(":") + 1));
       setQuestionNumber();
 
       String region = data[0].substring(0, data[0].indexOf('-'));
@@ -143,11 +144,8 @@ public class MainActivityFragment extends Fragment {
 
       try (InputStream stream =
                    assets.open(region + "/" + nextImage)) {
-         // load the asset as a Drawable and display on the flagImageView
          Drawable flag = Drawable.createFromStream(stream, nextImage);
          flagImageView.setImageDrawable(flag);
-
-         //animate(false); // animate the flag onto the screen
       }
       catch (IOException exception) {
          Log.e(TAG, "Error loading " + nextImage, exception);
@@ -191,9 +189,11 @@ public class MainActivityFragment extends Fragment {
    public void resetQuiz() {
       // use AssetManager to get image file names for enabled regions
 
+      questionNumber = 1;
       correctAnswers = 0; // reset the number of correct answers made
       totalGuesses = 0; // reset the total number of guesses the user made
       quizCountriesList.clear(); // clear prior list of quiz countries
+
 
       initFlags();
       loadNextFlag();
@@ -307,7 +307,7 @@ public class MainActivityFragment extends Fragment {
 
       // display current question number
       questionNumberTextView.setText(getString(
-         R.string.question, (correctAnswers + 1), FLAGS_IN_QUIZ));
+         R.string.question, questionNumber, FLAGS_IN_QUIZ));
    }
 
    private void setupCurrentQuestionData(String answer) {
@@ -322,7 +322,7 @@ public class MainActivityFragment extends Fragment {
             currentQuestion = currentQuestion.concat(String.format(",%s:T",(String)((Button) randomRow.getChildAt(j)).getText()));
          }
       }
-      currentQuestion = currentQuestion.concat(String.format(",QuestionNum:%d,TotalGuess:%d", correctAnswers, totalGuesses));
+      currentQuestion = currentQuestion.concat(String.format(",QuestionNum:%d,CorrectAnswers:%d,TotalGuess:%d", questionNumber, correctAnswers, totalGuesses));
       editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
       editor.apply();
    }
@@ -411,9 +411,12 @@ public class MainActivityFragment extends Fragment {
          String region = correctAnswer.substring(0, correctAnswer.indexOf("-"));
          String answer = getCountryName(correctAnswer);
          ++totalGuesses; // increment number of guesses the user has made
+         guessForQuestion++;
 
          if (guess.equals(answer)) { // if the guess is correct
             ++correctAnswers; // increment the number of correct answers
+            questionNumber++;
+            guessForQuestion = 0;
 
             // display correct answer in green text
             answerTextView.setText(answer + "!");
@@ -424,7 +427,7 @@ public class MainActivityFragment extends Fragment {
             disableButtons(); // disable all guess Buttons
 
             // if the user has correctly identified FLAGS_IN_QUIZ flags
-            if (correctAnswers == FLAGS_IN_QUIZ) {
+            if (questionNumber == FLAGS_IN_QUIZ) {
                // DialogFragment to display quiz stats and start new quiz
                DialogFragment quizResults =
                   new DialogFragment() {
@@ -468,25 +471,44 @@ public class MainActivityFragment extends Fragment {
             }
          }
          else { // answer was incorrect
-            flagImageView.startAnimation(shakeAnimation); // play shake
+            answerWasIncorrect(guessButton, guess, region);
+         }
 
-            // display "Incorrect!" in red
-            answerTextView.setText(R.string.incorrect_answer);
+         if (guessForQuestion == Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(getContext()).getString(MainActivity.NUMGUESSES, null))){
+            questionNumber++;
+            answerTextView.setText(String.format("The correct answer is %s!", answer));
             answerTextView.setTextColor(getResources().getColor(
-               R.color.incorrect_answer, getContext().getTheme()));
-            guessButton.setEnabled(false); // disable incorrect answer
-            setButtonImage(guessButton, guess, region);
+                    R.color.incorrect_answer, getContext().getTheme()));
+            handler.postDelayed(
+                    new Runnable() {
+                       @Override
+                       public void run() {
+                          animate(true);
+                       }
+                    }, 2000);
 
-            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
-            SharedPreferences.Editor editor = preferences.edit();
-            String currentQuestion = preferences.getString(MainActivity.CURRENTQUESTION, null);
-            currentQuestion = currentQuestion.replace(String.format(",%s:T", guess), String.format(",%s:F", guess));
-            currentQuestion = currentQuestion.replaceAll("TotalGuess:\\d+", String.format("TotalGuess:%d", totalGuesses));
-            editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
-            editor.apply();
          }
       }
    };
+
+   private void answerWasIncorrect(Button guessButton, String guess, String region) {
+      flagImageView.startAnimation(shakeAnimation); // play shake
+
+      // display "Incorrect!" in red
+      answerTextView.setText(R.string.incorrect_answer);
+      answerTextView.setTextColor(getResources().getColor(
+         R.color.incorrect_answer, getContext().getTheme()));
+      guessButton.setEnabled(false); // disable incorrect answer
+      setButtonImage(guessButton, guess, region);
+
+      SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
+      SharedPreferences.Editor editor = preferences.edit();
+      String currentQuestion = preferences.getString(MainActivity.CURRENTQUESTION, null);
+      currentQuestion = currentQuestion.replace(String.format(",%s:T", guess), String.format(",%s:F", guess));
+      currentQuestion = currentQuestion.replaceAll("TotalGuess:\\d+", String.format("TotalGuess:%d", totalGuesses));
+      editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
+      editor.apply();
+   }
 
    // utility method that disables all answer Buttons
    private void disableButtons() {
