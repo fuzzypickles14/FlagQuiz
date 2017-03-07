@@ -87,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
             PreferenceManager.getDefaultSharedPreferences(this));
 
          if (Objects.equals(PreferenceManager.getDefaultSharedPreferences(this).getString(CURRENTQUESTION, null), "") || formatPreferenceChanged) {
+            formatPreferenceChanged = false;
             flagAndButtonFragment.resetQuiz();
          } else {
             flagAndButtonFragment.loadCurrentQuestionFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));

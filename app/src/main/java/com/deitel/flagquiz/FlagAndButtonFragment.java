@@ -1,7 +1,5 @@
 package com.deitel.flagquiz;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
@@ -9,15 +7,14 @@ import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.os.Handler;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewAnimationUtils;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
@@ -68,7 +65,6 @@ public class FlagAndButtonFragment extends Fragment {
         super.onStart();
         if (comingBack) {
             if (questionNumber == FLAGS_IN_QUIZ) {
-
                 SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
                 loadCurrentQuestionFromPreferences(preferences);
                 guessForQuestion = 0;
@@ -318,41 +314,46 @@ public class FlagAndButtonFragment extends Fragment {
         return temp;
     }
     public void loadNextFlag() {
-        // get file name of the next flag and remove it from the list
-        String nextImage = quizCountriesList.remove(0);
-        correctAnswer = nextImage; // update the correct answer
-
-        setQuestionNumber();
-
-        // extract the region from the next image's name
+        String nextImage = pickCorrectAnswer();
         String region = nextImage.substring(0, nextImage.indexOf('-'));
-
-        // use AssetManager to load next image from assets folder
+        ArrayList<String> unfilteredFileNameList = removeCorrectFlagFromList(region);
+        setQuestionNumber();
         AssetManager assets = getActivity().getAssets();
+        setFlagImageViewImage(nextImage, assets, region + "/" + nextImage + ".png", "Error loading " + nextImage);
+        initGuessButtons();
+        addCorrectAnswerToGuessButtons(nextImage, unfilteredFileNameList);
+    }
 
-        // get an InputStream to the asset representing the next flag
-        // and try to use the InputStream
-        try (InputStream stream =
-                     assets.open(region + "/" + nextImage + ".png")) {
-            // load the asset as a Drawable and display on the flagImageView
-            Drawable flag = Drawable.createFromStream(stream, nextImage);
-            flagImageView.setImageDrawable(flag);
-
-            //animate(false); // animate the flag onto the screen
-        }
-        catch (IOException exception) {
-            Log.e(TAG, "Error loading " + nextImage, exception);
-        }
-
-        Collections.shuffle(fileNameList);// shuffle file names
+    @NonNull
+    private ArrayList<String> removeCorrectFlagFromList(String region) {
+        Collections.shuffle(fileNameList);
         ArrayList<String> unfilteredFileNameList = (ArrayList<String>) fileNameList;
 
-        // put the correct answer at the end of fileNameList
         int correct = unfilteredFileNameList.indexOf(correctAnswer);
         unfilteredFileNameList.add(unfilteredFileNameList.remove(correct));
 
         fileNameList = filterByRegion((ArrayList<String>) fileNameList, region);
+        return unfilteredFileNameList;
+    }
 
+    private String pickCorrectAnswer() {
+        String nextImage = quizCountriesList.remove(0);
+        correctAnswer = nextImage;
+        return nextImage;
+    }
+
+    private void addCorrectAnswerToGuessButtons(String nextImage, ArrayList<String> unfilteredFileNameList) {
+        // randomly replace one Button with the correct answer
+        int row = random.nextInt(guessRows); // pick random row
+        int column = random.nextInt(2); // pick random column
+        LinearLayout randomRow = guessLinearLayouts[row]; // get the row
+        String countryName = getCountryName(correctAnswer);
+        ((Button) randomRow.getChildAt(column)).setText(countryName);
+        fileNameList = unfilteredFileNameList;
+        setupCurrentQuestionData(nextImage);
+    }
+
+    private void initGuessButtons() {
         // add 2, 4, 6 or 8 guess Buttons based on the value of guessRow
         for (int row = 0; row < guessRows; row++) {
             // place Buttons in currentTableRow
@@ -370,16 +371,8 @@ public class FlagAndButtonFragment extends Fragment {
                 newGuessButton.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null);
             }
         }
-
-        // randomly replace one Button with the correct answer
-        int row = random.nextInt(guessRows); // pick random row
-        int column = random.nextInt(2); // pick random column
-        LinearLayout randomRow = guessLinearLayouts[row]; // get the row
-        String countryName = getCountryName(correctAnswer);
-        ((Button) randomRow.getChildAt(column)).setText(countryName);
-        fileNameList = unfilteredFileNameList;
-        setupCurrentQuestionData(nextImage);
     }
+
     private void setupCurrentQuestionData(String answer) {
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
         SharedPreferences.Editor editor = preferences.edit();
@@ -396,6 +389,7 @@ public class FlagAndButtonFragment extends Fragment {
         editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
         editor.apply();
     }
+
     public void loadCurrentQuestionFromPreferences(SharedPreferences preferences) {
         initFlags();
         String currentQuestionData = preferences.getString(MainActivity.CURRENTQUESTION, null);
@@ -403,24 +397,18 @@ public class FlagAndButtonFragment extends Fragment {
         String nextImage = data[0] + ".png";
 
         correctAnswer = data[0];
-        questionNumber = Integer.parseInt(data[data.length - 4].substring(data[data.length - 4].indexOf(":") + 1));
-        correctAnswers = Integer.parseInt(data[data.length - 3].substring(data[data.length - 3].indexOf(":") + 1));
-        guessForQuestion = Integer.parseInt(data[data.length - 2].substring(data[data.length - 2].indexOf(":") + 1));
-        totalGuesses = Integer.parseInt(data[data.length - 1].substring(data[data.length - 1].indexOf(":") + 1));
+        assignQuestionIntegers(data);
         setQuestionNumber();
 
         String region = data[0].substring(0, data[0].indexOf('-'));
         AssetManager assets = getActivity().getAssets();
 
-        try (InputStream stream =
-                     assets.open(region + "/" + nextImage)) {
-            Drawable flag = Drawable.createFromStream(stream, nextImage);
-            flagImageView.setImageDrawable(flag);
-        }
-        catch (IOException exception) {
-            Log.e(TAG, "Error loading " + nextImage, exception);
-        }
+        setFlagImageViewImage(nextImage, assets, region + "/" + nextImage, "Error loading " + nextImage);
+        initGuessButtonsWithExistingData(data, region);
 
+    }
+
+    private void initGuessButtonsWithExistingData(String[] data, String region) {
         int rowIndex = 0;
         for (int row = 0; row < guessRows; row++) {
             for (int column = 0;
@@ -441,7 +429,23 @@ public class FlagAndButtonFragment extends Fragment {
             }
             rowIndex++;
         }
+    }
 
+    private void setFlagImageViewImage(String nextImage, AssetManager assets, String fileName, String msg) {
+        try (InputStream stream =
+                     assets.open(fileName)) {
+            Drawable flag = Drawable.createFromStream(stream, nextImage);
+            flagImageView.setImageDrawable(flag);
+        } catch (IOException exception) {
+            Log.e(TAG, msg, exception);
+        }
+    }
+
+    private void assignQuestionIntegers(String[] data) {
+        questionNumber = Integer.parseInt(data[data.length - 4].substring(data[data.length - 4].indexOf(":") + 1));
+        correctAnswers = Integer.parseInt(data[data.length - 3].substring(data[data.length - 3].indexOf(":") + 1));
+        guessForQuestion = Integer.parseInt(data[data.length - 2].substring(data[data.length - 2].indexOf(":") + 1));
+        totalGuesses = Integer.parseInt(data[data.length - 1].substring(data[data.length - 1].indexOf(":") + 1));
     }
 
     private void setButtonImage(Button button, String country, String region) {
