@@ -42,7 +42,6 @@ import static com.deitel.flagquiz.MainActivityFragment.FLAGS_IN_QUIZ;
 
 public class FlagAndButtonFragment extends Fragment {
     private static final String TAG = "FlagQuiz Activity";
-    private LinearLayout quizLinearLayout; // layout that contains the quiz
     private ImageView flagImageView; // displays a flag
     private LinearLayout[] guessLinearLayouts; // rows of answer Buttons
     private TextView answerTextView;
@@ -69,8 +68,10 @@ public class FlagAndButtonFragment extends Fragment {
         super.onStart();
         if (comingBack) {
             if (questionNumber == FLAGS_IN_QUIZ) {
+
                 SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getContext());
                 loadCurrentQuestionFromPreferences(preferences);
+                guessForQuestion = 0;
                 showGameOverMessage();
             }else {
                 initFlags();
@@ -139,10 +140,6 @@ public class FlagAndButtonFragment extends Fragment {
     private void initTextAndImageViews(View view) {
         answerTextView = (TextView) view.findViewById(R.id.answerTextView);
         answerTextView.setText("");
-
-
-        quizLinearLayout =
-                (LinearLayout) view.findViewById(R.id.flagAndButtonDetailLinearLayout);
         flagImageView = (ImageView) view.findViewById(R.id.flagImageView);
     }
     private void configureButtonListeners() {
@@ -206,13 +203,6 @@ public class FlagAndButtonFragment extends Fragment {
                 ++correctAnswers; // increment the number of correct answers
                 questionNumber++;
                 guessForQuestion = 0;
-
-                // display correct answer in green text
-                answerTextView.setText(answer + "!");
-                answerTextView.setTextColor(
-                        getResources().getColor(R.color.correct_answer,
-                                getContext().getTheme()));
-
                 disableButtons(); // disable all guess Buttons
                 goToFlagDetailFragment(region, true);
             }
@@ -221,9 +211,6 @@ public class FlagAndButtonFragment extends Fragment {
                 if (guessForQuestion == Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(getContext()).getString(MainActivity.NUMGUESSES, null))) {
                     guessForQuestion = 0;
                     questionNumber++;
-                    answerTextView.setText(String.format("The correct answer is %s!", answer));
-                    answerTextView.setTextColor(getResources().getColor(
-                            R.color.incorrect_answer, getContext().getTheme()));
                     goToFlagDetailFragment(region, false);
                 }
             }
@@ -258,6 +245,7 @@ public class FlagAndButtonFragment extends Fragment {
         String currentQuestion = preferences.getString(MainActivity.CURRENTQUESTION, null);
         currentQuestion = currentQuestion.replace(String.format(",%s:T", guess), String.format(",%s:F", guess));
         currentQuestion = currentQuestion.replaceAll("TotalGuess:\\d+", String.format("TotalGuess:%d", totalGuesses));
+        currentQuestion = currentQuestion.replaceAll("NumCurrentGuess:\\d+", String.format("NumCurrentGuess:%d", guessForQuestion));
         editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
         editor.apply();
     }
@@ -404,7 +392,7 @@ public class FlagAndButtonFragment extends Fragment {
                 currentQuestion = currentQuestion.concat(String.format(",%s:T",(String)((Button) randomRow.getChildAt(j)).getText()));
             }
         }
-        currentQuestion = currentQuestion.concat(String.format(",QuestionNum:%d,CorrectAnswers:%d,TotalGuess:%d", questionNumber, correctAnswers, totalGuesses));
+        currentQuestion = currentQuestion.concat(String.format(",QuestionNum:%d,CorrectAnswers:%d,NumCurrentGuess:%d,TotalGuess:%d", questionNumber, correctAnswers, guessForQuestion, totalGuesses));
         editor.putString(MainActivity.CURRENTQUESTION, currentQuestion);
         editor.apply();
     }
@@ -415,8 +403,9 @@ public class FlagAndButtonFragment extends Fragment {
         String nextImage = data[0] + ".png";
 
         correctAnswer = data[0];
-        questionNumber = Integer.parseInt(data[data.length - 3].substring(data[data.length - 3].indexOf(":") + 1));
-        correctAnswers = Integer.parseInt(data[data.length - 2].substring(data[data.length - 2].indexOf(":") + 1));
+        questionNumber = Integer.parseInt(data[data.length - 4].substring(data[data.length - 4].indexOf(":") + 1));
+        correctAnswers = Integer.parseInt(data[data.length - 3].substring(data[data.length - 3].indexOf(":") + 1));
+        guessForQuestion = Integer.parseInt(data[data.length - 2].substring(data[data.length - 2].indexOf(":") + 1));
         totalGuesses = Integer.parseInt(data[data.length - 1].substring(data[data.length - 1].indexOf(":") + 1));
         setQuestionNumber();
 
