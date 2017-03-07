@@ -10,15 +10,14 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.preference.Preference;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -31,6 +30,8 @@ public class MainActivity extends AppCompatActivity {
 
    private boolean phoneDevice = true; // used to force portrait mode
    private boolean preferencesChanged = true; // did preferences change?
+   private boolean formatPreferenceChanged = false;
+   private FlagAndButtonFragment flagAndButtonFragment;
 
    // configure the MainActivity
    @Override
@@ -40,6 +41,10 @@ public class MainActivity extends AppCompatActivity {
       Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
       setSupportActionBar(toolbar);
 
+      flagAndButtonFragment = new FlagAndButtonFragment();
+      FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+      transaction.replace(R.id.main_fragment_container, flagAndButtonFragment);
+      transaction.commit();
       // set default values in the app's SharedPreferences
       PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
 
@@ -63,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
    }
 
+
    // called after onCreate completes execution
    @Override
    protected void onStart() {
@@ -71,19 +77,19 @@ public class MainActivity extends AppCompatActivity {
       if (preferencesChanged) {
          // now that the default preferences have been set,
          // initialize MainActivityFragment and start the quiz
-         MainActivityFragment quizFragment = (MainActivityFragment)
+         flagAndButtonFragment = (FlagAndButtonFragment)
             getSupportFragmentManager().findFragmentById(
-               R.id.quizFragment);
+               R.id.main_fragment_container);
 
-         quizFragment.updateGuessRows(
+         flagAndButtonFragment.updateGuessRows(
             PreferenceManager.getDefaultSharedPreferences(this));
-         quizFragment.updateRegions(
+         flagAndButtonFragment.updateRegions(
             PreferenceManager.getDefaultSharedPreferences(this));
 
-         if (Objects.equals(PreferenceManager.getDefaultSharedPreferences(this).getString(CURRENTQUESTION, null), "") || preferencesChanged) {
-            quizFragment.resetQuiz();
+         if (Objects.equals(PreferenceManager.getDefaultSharedPreferences(this).getString(CURRENTQUESTION, null), "") || formatPreferenceChanged) {
+            flagAndButtonFragment.resetQuiz();
          } else {
-            quizFragment.loadCurrentQuestionFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
+            flagAndButtonFragment.loadCurrentQuestionFromPreferences(PreferenceManager.getDefaultSharedPreferences(this));
          }
          preferencesChanged = false;
       }
@@ -113,6 +119,12 @@ public class MainActivity extends AppCompatActivity {
       return super.onOptionsItemSelected(item);
    }
 
+   @Override
+   public void onBackPressed() {
+      flagAndButtonFragment.signalComingBack();
+      super.onBackPressed();
+   }
+
    // listener for changes to the app's SharedPreferences
    private OnSharedPreferenceChangeListener preferencesChangeListener =
       new OnSharedPreferenceChangeListener() {
@@ -120,11 +132,12 @@ public class MainActivity extends AppCompatActivity {
          @Override
          public void onSharedPreferenceChanged(
             SharedPreferences sharedPreferences, String key) {
-            preferencesChanged = true; // user changed app setting
+            // user changed app setting
+            formatPreferenceChanged = !key.equals(CURRENTQUESTION);
 
-            MainActivityFragment quizFragment = (MainActivityFragment)
+            FlagAndButtonFragment quizFragment = (FlagAndButtonFragment)
                getSupportFragmentManager().findFragmentById(
-                  R.id.quizFragment);
+                  R.id.main_fragment_container);
 
             if (key.equals(CHOICES)) { // # of choices to display changed
                quizFragment.updateGuessRows(sharedPreferences);
